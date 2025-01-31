@@ -19,87 +19,81 @@ public class ChatClientGUI {
     private StringBuilder chatHistory;
 
     public ChatClientGUI() {
-        // Prompt for the user's name first
-        String userName = JOptionPane.showInputDialog(frame, "Enter your name:");
+        String userName = JOptionPane.showInputDialog(null, "Enter your name:", "User Login",
+                JOptionPane.PLAIN_MESSAGE);
         if (userName == null || userName.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Name cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "Name cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
+        clientName = userName;
+        frame = new JFrame(clientName + "'s Chat");
+        frame.setSize(600, 500);
+        frame.setLocationRelativeTo(null);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        clientName = userName; // Assign the user's name to the clientName variable
-        frame = new JFrame(clientName + "'s Chat Box"); // Dynamic window title with user's name
-
-        // Add the header "Simple Chat Application"
         JPanel headerPanel = new JPanel();
-        headerPanel.setBackground(new Color(50, 205, 50)); // Lime Green for header background
+        headerPanel.setBackground(new Color(30, 30, 30));
         JLabel headerLabel = new JLabel("Simple Chat Application", JLabel.CENTER);
-        headerLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         headerLabel.setForeground(Color.WHITE);
         headerPanel.add(headerLabel);
 
-        // Set chat background
         chatArea = new JEditorPane("text/html", "");
         chatArea.setEditable(false);
-        chatArea.setBackground(new Color(230, 230, 250)); // Light lavender background
         chatArea.setOpaque(true);
+        chatArea.setBackground(new Color(40, 40, 40));
 
-        chatHistory = new StringBuilder("<html><body style='font-family: Arial, sans-serif; padding: 10px; "
-                + "background-color: #E6E6FA;'>"); // Matches chatArea background
+        chatHistory = new StringBuilder(
+                "<html><body style='font-family: Segoe UI, sans-serif; color: white; padding: 10px; background-color: #282828;'></body></html>");
 
         inputField = new JTextField(35);
-        inputField.setFont(new Font("Arial", Font.PLAIN, 14));
+        inputField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
         sendButton = new JButton("Send");
-
-        // 💡 Stylish Send Button
-        sendButton.setFont(new Font("Arial", Font.BOLD, 14));
-        sendButton.setBackground(new Color(50, 205, 50)); // Lime Green
+        sendButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        sendButton.setBackground(new Color(70, 130, 180));
         sendButton.setForeground(Color.WHITE);
-        sendButton.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        sendButton.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
 
-        // Add hover effect
         sendButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                sendButton.setBackground(new Color(34, 139, 34)); // Darker green on hover
+                sendButton.setBackground(new Color(50, 100, 150));
             }
 
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                sendButton.setBackground(new Color(50, 205, 50)); // Back to lime green
+                sendButton.setBackground(new Color(70, 130, 180));
             }
         });
 
-        // Panel for input field and button
         JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(50, 50, 50));
         panel.add(inputField, BorderLayout.CENTER);
         panel.add(sendButton, BorderLayout.EAST);
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         frame.setLayout(new BorderLayout());
-        frame.add(headerPanel, BorderLayout.NORTH); // Adding the header
+        frame.add(headerPanel, BorderLayout.NORTH);
         frame.add(new JScrollPane(chatArea), BorderLayout.CENTER);
         frame.add(panel, BorderLayout.SOUTH);
-        frame.setSize(600, 500);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
 
-        // CONNECT TO SERVER
         try {
             socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
-            // Wait for prompt to enter the name (received from the server)
             if (in.readLine().equals("PROMPT_NAME")) {
-                out.println(clientName); // Send the name to the server
+                out.println(clientName);
             }
 
-            // THREAD TO RECEIVE MESSAGES
             new Thread(() -> {
                 try {
                     String message;
                     while ((message = in.readLine()) != null) {
                         if (message.equals("YOU_ENTERED")) {
                             addCenteredMessage("✅ You entered the chat");
+                        } else if (message.startsWith("🔔")) {
+                            addJoinMessage(message);
                         } else {
                             addMessage(message);
                         }
@@ -127,30 +121,42 @@ public class ChatClientGUI {
     }
 
     private void addMessage(String message) {
-        boolean isMe = message.startsWith("You:"); // Check if the message is from you
+        boolean isMe = message.startsWith("You:");
+        String bgColor = isMe ? "#007BFF" : "#0056b3"; // Light blue for sender, dark blue for receiver
+        String textColor = "white";
 
-        String alignment = isMe ? "right" : "left";
-        String bgColor = isMe ? "#DCF8C6" : "#F0F0F0"; // Green for you, gray for others
-        String textColor = isMe ? "#000000" : "#333333"; // Darker text for contrast
+        // Make "You:" or the other person's name bold
+        message = message.replaceFirst("^(You:|\\w+:)", "<b>$1</b>");
 
-        chatHistory.append("<div style='text-align: ")
-                .append(alignment)
-                .append("; margin: 5px 0;'><div style='display: inline-block; padding: 8px 12px; border-radius: 10px; background-color: ")
-                .append(bgColor)
-                .append("; color: ")
-                .append(textColor)
-                .append("; max-width: 75%; word-wrap: break-word;'>")
-                .append(message)
-                .append("</div></div>");
+        // Determine positioning
+        String position = isMe ? "right: 0;" : "left: 0;"; // Sender on right, receiver on left
+        String textAlignment = isMe ? "right" : "left"; // Align text inside bubble
+        String margin = isMe ? "margin-right: 10px;" : "margin-left: 10px;"; // Add some spacing
+
+        // Add the message with absolute positioning
+        chatHistory.insert(chatHistory.indexOf("</body>"),
+                "<div style='width: 100%; position: relative; margin: 9px 0;'>"
+                        + "<div style='max-width: 50%; padding: 8px 12px; border-radius: 15px; background-color: "
+                        + bgColor + ";"
+                        + " color: " + textColor + "; font-size: 12px; word-wrap: break-word; position: absolute; "
+                        + position
+                        + " text-align: " + textAlignment + "; " + margin + "'>"
+                        + message + "</div></div>");
 
         chatArea.setText(chatHistory.toString());
     }
 
     private void addCenteredMessage(String message) {
-        chatHistory.append("<div style='text-align:center; color: gray; font-style: italic;'>")
-                .append(message)
-                .append("</div>");
+        chatHistory.insert(chatHistory.indexOf("</body>"),
+                "<div style='text-align:center; color: gray; font-style: italic; font-weight: bold;'>"
+                        + message + "</div>");
+        chatArea.setText(chatHistory.toString());
+    }
 
+    private void addJoinMessage(String message) {
+        chatHistory.insert(chatHistory.indexOf("</body>"),
+                "<div style='text-align:center; color: #FFD700; font-family: Courier New, monospace; font-size: 12px; font-weight: bold; margin-top: 10px;'>"
+                        + message + "</div>");
         chatArea.setText(chatHistory.toString());
     }
 
